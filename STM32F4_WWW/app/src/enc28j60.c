@@ -53,16 +53,14 @@ uint8_t ENC28J60_ReadOp(uint8_t op, uint8_t address)
   uint8_t data;
   // stan niski na SS
   HAL_Select();
-  TIMER_Delay(10);
+  TIMER_Delay(1);
   //przeslanie polecenia
   HAL_Transmit(op | (address & ADDR_MASK));
-  TIMER_Delay(10);
   //odebranie danych z kontrolera
   data = HAL_Transmit(0xFF);
-  TIMER_Delay(10);
   if(address & 0x80) // throw out dummy byte
     data = HAL_Transmit(0xFF); // when reading MII/MAC register
-  TIMER_Delay(10);
+  TIMER_Delay(1);
   // stan wysoki na SS
   HAL_Deselect();
 
@@ -75,11 +73,10 @@ void ENC28J60_WriteOp(uint8_t op, uint8_t address, uint8_t data)
 {
   // stan niski na SS
   HAL_Select();
-  TIMER_Delay(10);
+  TIMER_Delay(1);
   HAL_Transmit(op | (address & ADDR_MASK));
-  TIMER_Delay(10);
   HAL_Transmit(data);
-  TIMER_Delay(10);
+  TIMER_Delay(1);
   // stan wysoki na SS
   HAL_Deselect();
 }
@@ -89,22 +86,21 @@ void ENC28J60_WriteOp(uint8_t op, uint8_t address, uint8_t data)
 void ENC28J60_ReadBuffer(uint16_t len, uint8_t* data)
 {
   HAL_Select();
-  TIMER_Delay(10);
-        // issue read command
-      HAL_Transmit(ENC28J60_READ_BUF_MEM);
+  TIMER_Delay(1);
+  // issue read command
+  HAL_Transmit(ENC28J60_READ_BUF_MEM);
 
-        while(len)
-        {
-                len--;
-                // read data
-                *data = HAL_Transmit(0);
-                TIMER_Delay(10);
-                data++;
-        }
-        // zakonczenie danych bajtem zero
-        *data='\0';
-        TIMER_Delay(10);
-        HAL_Deselect();
+  while(len)
+  {
+    len--;
+    // read data
+    *data = HAL_Transmit(0);
+    data++;
+  }
+  // zakonczenie danych bajtem zero
+  *data='\0';
+  TIMER_Delay(1);
+  HAL_Deselect();
 }
 /**
  * Zapisanie do bufora kontrolera
@@ -112,21 +108,19 @@ void ENC28J60_ReadBuffer(uint16_t len, uint8_t* data)
 void ENC28J60_WriteBuffer(uint16_t len, uint8_t* data)
 {
   HAL_Select();
-  TIMER_Delay(10);
-        // issue write command
-    HAL_Transmit(ENC28J60_WRITE_BUF_MEM);
-    TIMER_Delay(10);
+  TIMER_Delay(1);
+  // issue write command
+  HAL_Transmit(ENC28J60_WRITE_BUF_MEM);
 
-        while(len)
-        {
-                len--;
-                // write data
-                HAL_Transmit(*data);
-                TIMER_Delay(10);
-                data++;
-        }
-        TIMER_Delay(10);
-        HAL_Deselect();
+  while(len)
+  {
+    len--;
+    // write data
+    HAL_Transmit(*data);
+    data++;
+  }
+  TIMER_Delay(1);
+  HAL_Deselect();
 }
 /**
  * Ustawienie banku rejestrow
@@ -165,7 +159,7 @@ uint16_t ENC28J60_PhyReadH(uint8_t address)
   ENC28J60_Write(MICMD, MICMD_MIIRD);
        // _delay_ms(1); // 10us
   int i;
-  for(i=0;i<100;i++);
+  for(i=0;i<1000;i++);
 
   // wait until the PHY read completes
   while(ENC28J60_Read(MISTAT) & MISTAT_BUSY);
@@ -199,7 +193,7 @@ void ENC28J60_PhyWrite(uint8_t address, uint16_t data)
         // wait until the PHY write completes
         while(ENC28J60_Read(MISTAT) & MISTAT_BUSY){
                 //_delay_ms(1); // 10us
-          for(i=0;i<100;i++);
+          for(i=0;i<1000;i++);
         }
 }
 
@@ -227,12 +221,7 @@ void ENC28J60_Init(uint8_t* macaddr)
   gNextPacketPtr = RXSTART_INIT;
         // Rx start
   ENC28J60_Write(ERXSTL, RXSTART_INIT&0xFF);
-  TIMER_Delay(10);
   ENC28J60_Write(ERXSTH, RXSTART_INIT>>8);
-  TIMER_Delay(10);
-  uint8_t ret = ENC28J60_Read(ERXSTL);
-
-  println("ret = %u", ret);
 
   // set receive pointer address
   ENC28J60_Write(ERXRDPTL, RXSTART_INIT&0xFF);
@@ -240,6 +229,9 @@ void ENC28J60_Init(uint8_t* macaddr)
   // RX end
   ENC28J60_Write(ERXNDL, RXSTOP_INIT&0xFF);
   ENC28J60_Write(ERXNDH, RXSTOP_INIT>>8);
+  uint8_t ret = ENC28J60_Read(ERXNDL);
+
+  println("ret = %u", ret);
   // TX start
   ENC28J60_Write(ETXSTL, TXSTART_INIT&0xFF);
   ENC28J60_Write(ETXSTH, TXSTART_INIT>>8);

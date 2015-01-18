@@ -116,6 +116,7 @@ uint8_t EthernetEvent() {
 			// head, post and other methods:
 			dat_p=http200ok();
 			dat_p=fill_tcp_data(buf,dat_p,"<h1>200 OK</h1>");
+			dat_p=fill_tcp_data(buf,dat_p,"<h1>STM32F4 server</h1>");
 			goto SENDTCP;
 	}
 	// just one web page in the "root directory" of the web server
