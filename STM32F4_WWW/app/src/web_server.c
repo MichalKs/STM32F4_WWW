@@ -35,6 +35,7 @@ uint8_t mymac[6] = {0x54,0x55,0x58,0x10,0x00,0x28};
 // ustalamy adres IP urz�dzenia
 uint8_t myip[4] = {10,42,0,37};
 
+
 // server listen port for www
 #define MYWWWPORT 80
 
