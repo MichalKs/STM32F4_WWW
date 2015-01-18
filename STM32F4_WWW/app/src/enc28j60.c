@@ -13,7 +13,7 @@
  * Chip type           : ATMEGA88 with ENC28J60
  *
  *
- * Modyfikacje Micha� Ksi�opolski (m.in. przeportowanie na STM32F0)
+ * Modifications for STM32F4 Michal Ksiezopolski
  *********************************************/
 
 #include "enc28j60.h"
@@ -44,49 +44,49 @@ static uint8_t Enc28j60Bank;
  */
 static int16_t gNextPacketPtr;
 
-
 /**
- * Operacja odczytywania danych z kontrolera
+ * @brief Read data from device
+ * @param op
+ * @param address
+ * @return
  */
-uint8_t ENC28J60_ReadOp(uint8_t op, uint8_t address)
-{
+uint8_t ENC28J60_ReadOp(uint8_t op, uint8_t address) {
   uint8_t data;
-  // stan niski na SS
   HAL_Select();
-  TIMER_Delay(1);
-  //przeslanie polecenia
+  // send command
   HAL_Transmit(op | (address & ADDR_MASK));
-  //odebranie danych z kontrolera
+  // get data
   data = HAL_Transmit(0xFF);
   if(address & 0x80) // throw out dummy byte
     data = HAL_Transmit(0xFF); // when reading MII/MAC register
-  TIMER_Delay(1);
-  // stan wysoki na SS
   HAL_Deselect();
 
   return data;
 }
 /**
- * Zapisanie danych w rejestrze kontrolera
+ * @brief Write data to device
+ * @param op
+ * @param address
+ * @param data
  */
-void ENC28J60_WriteOp(uint8_t op, uint8_t address, uint8_t data)
-{
+void ENC28J60_WriteOp(uint8_t op, uint8_t address, uint8_t data) {
   // stan niski na SS
   HAL_Select();
-  TIMER_Delay(1);
   HAL_Transmit(op | (address & ADDR_MASK));
   HAL_Transmit(data);
-  TIMER_Delay(1);
+  for(int i = 0; i < 50; i++);
   // stan wysoki na SS
   HAL_Deselect();
 }
+
 /**
- * Odczytanie bufora z kontrolera
+ * @brief Read buffer
+ * @param len
+ * @param data
  */
 void ENC28J60_ReadBuffer(uint16_t len, uint8_t* data)
 {
   HAL_Select();
-  TIMER_Delay(1);
   // issue read command
   HAL_Transmit(ENC28J60_READ_BUF_MEM);
 
@@ -99,7 +99,6 @@ void ENC28J60_ReadBuffer(uint16_t len, uint8_t* data)
   }
   // zakonczenie danych bajtem zero
   *data='\0';
-  TIMER_Delay(1);
   HAL_Deselect();
 }
 /**
@@ -108,7 +107,6 @@ void ENC28J60_ReadBuffer(uint16_t len, uint8_t* data)
 void ENC28J60_WriteBuffer(uint16_t len, uint8_t* data)
 {
   HAL_Select();
-  TIMER_Delay(1);
   // issue write command
   HAL_Transmit(ENC28J60_WRITE_BUF_MEM);
 
@@ -119,7 +117,6 @@ void ENC28J60_WriteBuffer(uint16_t len, uint8_t* data)
     HAL_Transmit(*data);
     data++;
   }
-  TIMER_Delay(1);
   HAL_Deselect();
 }
 /**
