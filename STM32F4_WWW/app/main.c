@@ -68,6 +68,8 @@ int main(void) {
   // test another way of measuring time delays
   uint32_t softTimer = TIMER_GetTime(); // get start time for delay
 
+  WebserverInit();
+
   while (1) {
 
     // test delay method
@@ -97,6 +99,7 @@ int main(void) {
 
     TIMER_SoftTimersUpdate(); // run timers
     KEYS_Update(); // run keyboard
+    EthernetEvent();
   }
 }
 
