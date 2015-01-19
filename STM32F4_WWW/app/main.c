@@ -1,6 +1,6 @@
 /**
  * @file    main.c
- * @brief   LED test
+ * @brief   Web server test
  * @date    9 kwi 2014
  * @author  Michal Ksiezopolski
  *
@@ -22,6 +22,7 @@
 #include <led.h>
 #include <comm.h>
 #include <keys.h>
+#include <web_server.h>
 
 #define SYSTICK_FREQ 1000 ///< Frequency of the SysTick set at 1kHz.
 #define COMM_BAUD_RATE 115200UL ///< Baud rate for communication with PC
@@ -68,7 +69,7 @@ int main(void) {
   // test another way of measuring time delays
   uint32_t softTimer = TIMER_GetTime(); // get start time for delay
 
-  WebserverInit();
+  HTTP_Init(); // initialize web services
 
   while (1) {
 
@@ -99,7 +100,7 @@ int main(void) {
 
     TIMER_SoftTimersUpdate(); // run timers
     KEYS_Update(); // run keyboard
-    EthernetEvent();
+    HTTP_Event();
   }
 }
 
@@ -108,27 +109,27 @@ int main(void) {
  */
 void softTimerCallback(void) {
 
-//  static uint8_t counter;
-//
-//  switch (counter % 3) {
-//
-//  case 0:
-//    LED_ChangeState(LED1, LED_OFF);
-//    LED_ChangeState(LED2, LED_OFF);
-//    break;
-//
-//  case 1:
-//    LED_ChangeState(LED1, LED_ON);
-//    LED_ChangeState(LED2, LED_OFF);
-//    break;
-//
-//  case 2:
-//    LED_ChangeState(LED1, LED_OFF);
-//    LED_ChangeState(LED2, LED_ON);
-//    break;
-//
-//  }
+  static uint8_t counter;
+
+  switch (counter % 3) {
+
+  case 0:
+    LED_ChangeState(LED1, LED_OFF);
+    LED_ChangeState(LED2, LED_OFF);
+    break;
+
+  case 1:
+    LED_ChangeState(LED1, LED_ON);
+    LED_ChangeState(LED2, LED_OFF);
+    break;
+
+  case 2:
+    LED_ChangeState(LED1, LED_OFF);
+    LED_ChangeState(LED2, LED_ON);
+    break;
+
+  }
 
   println("Test string sent from STM32F4!!!"); // Print test string
-//  counter++;
+  counter++;
 }

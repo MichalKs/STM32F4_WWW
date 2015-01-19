@@ -1,167 +1,151 @@
-/*********************************************
- * vim:sw=8:ts=8:si:et
- * To use the above modeline in vim you must have "set modeline" in your .vimrc
- * Author: Guido Socher
- * Copyright: GPL V2
- *
- * Tuxgraphics AVR webserver/ethernet board
- *
- * http://tuxgraphics.org/electronics/
- * Chip type           : Atmega88/168/328 with ENC28J60
+/**
+ * @file    web_server.c
+ * @brief   Web server
+ * @date    19 sty 2015
+ * @author  Michal Ksiezopolski
  *
  *
- * MODYFIKACJE: Miros�aw Karda� --- ATmega32
- *
- * Modyfikacje Michal Ksiezopolski 05.2013
- *
- *********************************************/
+ * @verbatim
+ * Copyright (c) 2014 Michal Ksiezopolski.
+ * All rights reserved. This program and the
+ * accompanying materials are made available
+ * under the terms of the GNU Public License
+ * v3.0 which accompanies this distribution,
+ * and is available at
+ * http://www.gnu.org/licenses/gpl.html
+ * @endverbatim
+ */
 
 #include "web_server.h"
-#include <stm32f4xx.h>
+#include <stdio.h>
+#include <string.h>
+#include "ip_arp_udp_tcp.h"
+#include "enc28j60.h"
+#include "net.h"
 
 #define DEBUG
 
 #ifdef DEBUG
 #define print(str, args...) printf(""str"%s",##args,"")
-#define println(str, args...) printf("WEB--> "str"%s",##args,"\r\n")
+#define println(str, args...) printf("WEBSERVER--> "str"%s",##args,"\r\n")
 #else
 #define print(str, args...) (void)0
 #define println(str, args...) (void)0
 #endif
 
-extern char rf_buf[30];
-// ustalamy adres MAC
-uint8_t mymac[6] = {0x54,0x55,0x58,0x10,0x00,0x28};
-// ustalamy adres IP urz�dzenia
-uint8_t myip[4] = {10,42,0,37};
 
+#define HTTP_PORT 80              ///< Port for WWW server
+#define BUFFER_SIZE 850           ///< Ethernet buffer size
+uint8_t buf[BUFFER_SIZE+1];       ///< Buffer for received packets
 
-// server listen port for www
-#define MYWWWPORT 80
+uint8_t macAddress[6] = {0x54,0x55,0x58,0x10,0x00,0x28}; ///< Device MAC address
+uint8_t ipAddress[4] = {10,42,0,37}; ///< Device IP address
 
-/**
- * Bufor na odebrany pakiet
- */
-uint8_t buf[BUFFER_SIZE+1];
+static uint16_t HTTP_PrintWebpage(uint8_t *buf);
+static uint16_t HTTP_200OK(void);
+static uint16_t HTTP_PrintSensors(uint8_t *buf,uint16_t plen, uint8_t sensor);
 
-/**
- * Konstrukcja strony internetowej
- */
-static uint16_t print_webpage(uint8_t *buf);
-/**
- * Przes�anie nag��wk�w HTTP
- */
-static uint16_t http200ok(void);
+#define PAGE_INDEX "/index.html "
 
 /**
- * Przeslanie informacji o danym czujniku
+ * @brief Initialize HTTP server
  */
-static uint16_t print_sensor_info(uint8_t *buf,uint16_t plen, uint8_t sensor);
+void HTTP_Init(void) {
 
-/**
- * Przes�anie nag��wk�w HTTP
- */
-uint16_t http200ok(void) {
-        return(fill_tcp_data(buf,0, ("HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nPragma: no-cache\r\n\r\n")));
-}
+  // initialize the hardware driver for the ENC28J60
+  ENC28J60_Init(macAddress);
 
-/**
- * Konstrukcja strony internetowej
- */
-uint16_t print_webpage(uint8_t *buf) {
+  // initialize the TCP/IP stack
+  init_ip_arp_udp_tcp(macAddress, ipAddress, HTTP_PORT);
 
-        uint16_t plen;
-        // naglowek HTTP
-        plen=http200ok();
-        plen=fill_tcp_data(buf,plen,("<pre style=\"background-color:#A8A8A8\">"));
-        plen=fill_tcp_data(buf,plen,("<font color='green' size='6'><b>Przeglad stanu czujnikow:</b>\n</font>"));
-        // informacje o czujniku 1
-        plen=print_sensor_info(buf,plen,0);
-        plen=fill_tcp_data(buf,plen,("</font></pre>\n"));
-        return(plen);
 }
 /**
- * Przeslanie informacji o danym czujniku
+ * @brief Check for incoming Ethernet packets
+ * @retval 0 No packets
+ * @retval 1 Received packets
  */
-uint16_t print_sensor_info(uint8_t *buf,uint16_t plen, uint8_t sensor) {
-    plen=fill_tcp_data(buf,plen,("<font color='blue' size='5'><i>Czujnik nr 1:\t</i>"));
-    //plen=fill_tcp_data(buf,plen,"<img src=\"http://www.napad.pl/katalog/data/katalog/produkty/srednie/czujnik-ruchu_paradox_pro-plus_glowne_500.jpg\" "
-    //		"height=\"100\" width=\"100\">");
-    plen=fill_tcp_data(buf,plen,"Hello world");
+uint8_t HTTP_Event(void) {
 
-	//plen=fill_tcp_data(buf,plen,"<img src=\"http://krupers.pl/wp-content/uploads/2012/02/39660808231603111092680.jpg\" "
-		//	"alt=\"Burglary\" height=\"400\" width=\"400\">");
+  uint16_t pos;
+  // wait for packets, returns position of TCP data
+  pos = packetloop_icmp_tcp(buf, ENC28J60_PacketReceive(BUFFER_SIZE, buf));
+
+  // no packets
+  if(pos == 0) {
+      return 0;
+  }
+
+  println("Got packet");
+
+  // parse HTTP commands
+  if (strncmp("GET ", (char *)&(buf[pos]), 4)==0) {
+
+    println("GET command received");
+
+    // decode page
+    if (strncmp("/ ",(char *)&(buf[pos+4]), 2)==0) {
+      println("Sending web page");
+      pos = HTTP_200OK();
+      pos = fill_tcp_data(buf, pos, "<h1>200 OK</h1>");
+      pos = fill_tcp_data(buf, pos, "<h1>STM32F4 server</h1>");
+
+    } else if (strncmp(PAGE_INDEX,(char *)&(buf[pos+4]), strlen(PAGE_INDEX)) == 0) {
+      println("Sending web page");
+      pos = HTTP_PrintWebpage(buf);
+
+    } else {
+      println("Web page not found");
+      pos = fill_tcp_data(buf, 0, ("HTTP/1.0 401 Unauthorized\r\n"
+          "Content-Type: text/html\r\n\r\n"
+          "<h1>401 Unauthorized</h1>"));
+    }
+  }
+
+  // send reply
+  www_server_reply(buf, pos);
+
+  return 1;
+}
+/**
+ * @brief Send HTTP header
+ * @return Current position in buffer.
+ */
+uint16_t HTTP_200OK(void) {
+  return(fill_tcp_data(buf, 0,
+      "HTTP/1.0 200 OK\r\n"
+      "Content-Type: text/html\r\n"
+      "Pragma: no-cache\r\n\r\n"));
+}
+/**
+ * @brief Print web page
+ * @param buf Buffer to write the page to.
+ * @return Current position in buffer
+ */
+uint16_t HTTP_PrintWebpage(uint8_t *buf) {
+
+  uint16_t plen;
+  plen = HTTP_200OK();
+  plen = fill_tcp_data(buf,plen,("<pre style=\"background-color:#A8A8A8\">"));
+  plen = fill_tcp_data(buf,plen,("<font color='green' size='6'>"
+      "<b>Monitor sensors:</b></font></br>"));
+  plen = HTTP_PrintSensors(buf, plen, 0);
+  plen = fill_tcp_data(buf,plen,("</pre></br>Whatever"));
+  plen = fill_tcp_data(buf,plen,("</br>"));
+  return(plen);
+}
+/**
+ * @brief Print sensor information
+ * @param buf Buffer to print data to
+ * @param plen Position in buffer to start writing
+ * @param sensor Sensor number
+ * @return Position in buffers after write
+ */
+uint16_t HTTP_PrintSensors(uint8_t *buf,uint16_t plen, uint8_t sensor) {
+
+  plen=fill_tcp_data(buf,plen,("<font color='blue' size='5'>"
+      "<i>Sensor no. 1:\t</i>"));
+  plen=fill_tcp_data(buf,plen,"Hello world</font></br>");
+
 	return plen;
 }
-
-/**
- * Zdarzenie od kontrolera Ethernetu
- */
-uint8_t EthernetEvent() {
-	// wskaznik na dane w odebranym pakiecie
-
-	uint16_t dat_p;
-	// read packet, handle ping and wait for a tcp packet:
-	dat_p=packetloop_icmp_tcp(buf,ENC28J60_PacketReceive(BUFFER_SIZE, buf));
-
-	if(dat_p==0){
-			// no http request
-			return 0;
-	}
-
-	println("Got packet");
-
-	// tcp port 80 begin
-	if (strcmp("GET ",(char *)&(buf[dat_p]),4)!=0){
-			// head, post and other methods:
-			dat_p=http200ok();
-			dat_p=fill_tcp_data(buf,dat_p,"<h1>200 OK</h1>");
-			dat_p=fill_tcp_data(buf,dat_p,"<h1>STM32F4 server</h1>");
-			goto SENDTCP;
-	}
-	// just one web page in the "root directory" of the web server
-	if (strcmp("/ ",(char *)&(buf[dat_p+4]),2)==0){
-			dat_p=print_webpage(buf);
-			goto SENDTCP;
-	}else{
-			dat_p=fill_tcp_data(buf,0,("HTTP/1.0 401 Unauthorized\r\nContent-Type: text/html\r\n\r\n<h1>401 Unauthorized</h1>"));
-			goto SENDTCP;
-	}
-SENDTCP:
-	www_server_reply(buf,dat_p); // send web page data
-	// tcp port 80 end
-
-	return 1;
-}
-
-/**
- * Inicjalizacja kontrolera Ethernet oraz stosu TCP/IP
- */
-void WebserverInit() {
-
-	//initialize the hardware driver for the enc28j60
-	ENC28J60_Init(mymac);
-
-	// za�aczenie diody sygnalizujacej prace kontrolera ethernet
-	ENC28J60_PhyWrite(PHLCON,0x476);
-
-	//init the ethernet/ip layer:
-	init_ip_arp_udp_tcp(mymac,myip,MYWWWPORT);
-
-	// testowanie komunikacji z modulem (odczyt MAC)
-	int rev;
-	// rev=enc28j60getrev();
-	rev=ENC28J60_Read(MAADR5);
-	print("%02x", rev);
-	print(":");
-	rev=ENC28J60_Read(MAADR4);
-  print("%02x", rev);
-  print(":");
-	rev=ENC28J60_Read(MAADR3);
-  print("%02x", rev);
-  print(":");
-  print("\r\n");
-
-}
-
 

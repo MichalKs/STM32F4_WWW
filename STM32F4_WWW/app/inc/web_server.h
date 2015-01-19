@@ -1,34 +1,26 @@
+/**
+ * @file    web_server.h
+ * @brief   Web server
+ * @date    19 sty 2015
+ * @author  Michal Ksiezopolski
+ *
+ *
+ * @verbatim
+ * Copyright (c) 2014 Michal Ksiezopolski.
+ * All rights reserved. This program and the
+ * accompanying materials are made available
+ * under the terms of the GNU Public License
+ * v3.0 which accompanies this distribution,
+ * and is available at
+ * http://www.gnu.org/licenses/gpl.html
+ * @endverbatim
+ */
 #ifndef WEB_SERVER_H_
 #define WEB_SERVER_H_
 
-#include "ip_arp_udp_tcp.h"
-#include "enc28j60.h"
-#include "net.h"
+#include <inttypes.h>
 
-
-// adres MAC
-extern uint8_t mymac[6];
-// adres IP urz�dzenia
-extern uint8_t myip[4];
-
-// server listen port for www
-#define MYWWWPORT 80
-/**
- * Rozmiar bufora na odebrany pakiet
- */
-#define BUFFER_SIZE 850
-extern uint8_t buf[BUFFER_SIZE+1];
-
-
-/**
- * Zdarzenie od kontrolera Ethernetu
- */
-uint8_t EthernetEvent();
-/**
- * Inicjalizacja kontrolera Ethernet oraz stosu TCP/IP
- */
-void WebserverInit();
-
-
+uint8_t HTTP_Event(void);
+void HTTP_Init(void);
 
 #endif
